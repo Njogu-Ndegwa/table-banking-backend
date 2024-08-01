@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 from pathlib import Path
-
+from datetime import timedelta
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -31,6 +31,12 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'interest',
+    'shares',
+    'proposals',
+    'loans',
+    'wallet',
+    'withdrawals',
     'deposits',
     'users',
     'django.contrib.admin',
@@ -134,3 +140,10 @@ AUTH_USER_MODEL = 'users.CustomUser'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),  # Set the lifetime to 1 day
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),  # Set the lifetime to 7 days
+    # ... other settings
+}
