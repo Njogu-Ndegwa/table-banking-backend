@@ -53,6 +53,7 @@ class CustomUser(AbstractBaseUser):
     full_name = models.CharField(max_length=255)
     is_active = models.BooleanField(default=True)
     is_admin = models.BooleanField(default=False)
+    roles = models.ManyToManyField('Role', related_name='users')
     
     objects = MyUserManager()
 
@@ -77,3 +78,12 @@ class CustomUser(AbstractBaseUser):
         "Is the user a member of staff?"
         # Simplest possible answer: All admins are staff
         return self.is_admin
+    
+
+class Role(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True)
+
+    def __str__(self):
+        return self.name
+

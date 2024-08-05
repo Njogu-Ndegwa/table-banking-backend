@@ -1,4 +1,5 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Loan, LoanRepayment
@@ -7,22 +8,32 @@ from .serializers import LoanSerializer, LoanRepaymentSerializer
 from wallet.models import UserWallet
 from decimal import Decimal
 from services.interest import update_interest_earned
+from decorators.decorators import role_required
+
 @api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+@role_required(roles=['PARTNER', 'MEMBER'])
 def loan_list(request):
     if request.method == 'GET':
         loans = Loan.objects.all()
         serializer = LoanSerializer(loans, many=True)
         return Response(serializer.data)
-
     elif request.method == 'POST':
+        try:
+            user_wallet = UserWallet.objects.get(user=borrower)
+        except Exception as e:
+            return Response({"error: User Wallet does not exist"}, status=status.HTTP_400_BAD_REQUEST)
         serializer = LoanSerializer(data=request.data)
         borrower = request.data['borrower']
         borrowed_amount = Decimal(request.data['amount_borrowed'])
         interest_rate = Decimal(request.data['interest_rate'])
-        user_wallet = UserWallet.objects.get(user=borrower)
         wallet = user_wallet.wallet
         wallet_balance = wallet.balance
-        current_loan = Loan.objects.filter(borrower=borrower, status__in=['active', 'defaulted'])
+
+        try:
+            current_loan = Loan.objects.filter(borrower=borrower, status__in=['active', 'defaulted'])
+        except Exception as e:
+            return Response({"error: Member Does not have a current loan"}, status=status.HTTP_400_BAD_REQUEST)
 
         if serializer.is_valid():
             result = borrow_loan(borrowed_amount, current_loan, wallet_balance, interest_rate)
@@ -37,6 +48,8 @@ def loan_list(request):
     
 
 @api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+@role_required(roles=['PARTNER', 'MEMBER'])
 def loan_detail(request, pk):
     try:
         loan = Loan.objects.get(pk=pk)
@@ -61,6 +74,8 @@ def loan_detail(request, pk):
 
 
 @api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+@role_required(roles=['PARTNER', 'MEMBER'])
 def loan_repayment_list(request):
     if request.method == 'GET':
         repayments = LoanRepayment.objects.all()
@@ -113,6 +128,8 @@ def loan_repayment_list(request):
 
 
 @api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+@role_required(roles=['PARTNER', 'MEMBER'])
 def loan_repayment_detail(request, pk):
     try:
         repayment = LoanRepayment.objects.get(pk=pk)

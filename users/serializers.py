@@ -5,6 +5,8 @@ from django.contrib.auth import authenticate
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import json
 from rest_framework import status
+from .models import Role
+
 User = get_user_model()
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -13,16 +15,20 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('phone_number', 'id_number', 'full_name', 'password', 'confirm_password')
+        fields = ('phone_number', 'id_number', 'full_name', 'password', 'confirm_password', 'roles')
 
     def create(self, validated_data):
         password = validated_data.pop('password')
         confirm_password = validated_data.pop('confirm_password')
+        roles = validated_data.pop('roles')
+
         if password != confirm_password:
             raise serializers.ValidationError("Passwords do not match")
         user = User.objects.create(**validated_data)
         user.set_password(password)
         user.save()
+
+        user.roles.set(roles)
         return user
 
 class LoginSerializer(TokenObtainPairSerializer):
@@ -36,4 +42,10 @@ class LoginSerializer(TokenObtainPairSerializer):
 class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
+        fields = '__all__'
+
+
+class RoleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Role
         fields = '__all__'

@@ -1,10 +1,15 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Shares
 from .serializers import SharesSerializer
+from decorators.decorators import role_required
+from rest_framework.permissions import IsAuthenticated
+
 
 @api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+@role_required(roles=['PARTNER', 'MEMBER'])
 def shares_list(request):
     """
     List all shares, or create a new share.
@@ -21,7 +26,10 @@ def shares_list(request):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
 @api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+@role_required(roles=['PARTNER', 'MEMBER'])
 def shares_detail(request, pk):
     """
     Retrieve, update or delete a share.
