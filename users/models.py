@@ -54,7 +54,8 @@ class CustomUser(AbstractBaseUser):
     is_active = models.BooleanField(default=True)
     is_admin = models.BooleanField(default=False)
     roles = models.ManyToManyField('Role', related_name='users')
-    
+    partner = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='members')
+
     objects = MyUserManager()
 
     USERNAME_FIELD = "phone_number"

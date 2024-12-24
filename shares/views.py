@@ -2,10 +2,11 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Shares
+from wallet.models import Wallet
 from .serializers import SharesSerializer
 from decorators.decorators import role_required
 from rest_framework.permissions import IsAuthenticated
-
+from django.db.models import OuterRef, Subquery
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
@@ -15,7 +16,10 @@ def shares_list(request):
     List all shares, or create a new share.
     """
     if request.method == 'GET':
-        shares = Shares.objects.all()
+        try:
+            shares = Shares.objects.filter(user=request.user)
+        except Exception as e:
+             return Response({"error: User Does not have Deposits"}, status=status.HTTP_400_BAD_REQUEST)
         serializer = SharesSerializer(shares, many=True)
         return Response(serializer.data)
 
@@ -54,3 +58,31 @@ def shares_detail(request, pk):
         share.delete()
         response = {"message": "Item Deleted Successfully"}
         return Response(response, status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@role_required(roles=['PARTNER'])
+def user_deposits_in_wallet(request, wallet):
+    # Handle GET request: List all deposits for the current user
+    if request.method == 'GET':
+        try:
+            wallet = Wallet.objects.get(id=wallet)
+            # Get all users associated with this wallet
+            user_wallets = wallet.userwallet_set.all()
+            users = [user_wallet.user for user_wallet in user_wallets]
+            # Subquery to get the latest share for each user
+            latest_shares_subquery = Shares.objects.filter(
+                user=OuterRef('user')
+            ).order_by('-timestamp').values('id')[:1]
+            # Annotate the latest share for each user
+            latest_shares = Shares.objects.filter(
+                user__in=users
+            ).filter(
+                id__in=Subquery(latest_shares_subquery)
+            )
+        except Exception as e:
+            return Response({"error": "There was a problem"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = SharesSerializer(latest_shares, many=True)
+        return Response(serializer.data)

@@ -13,6 +13,7 @@ class Loan(models.Model):
     ]
     
     borrower = models.ForeignKey("users.CustomUser", on_delete=models.CASCADE)
+    wallet = models.ForeignKey("wallet.Wallet", on_delete=models.SET_NULL, related_name="loans", null=True, blank=True)  # Nullable wallet field
     amount_borrowed = models.DecimalField(max_digits=10, decimal_places=2)
     amount_to_be_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     interest_rate = models.DecimalField(max_digits=5, decimal_places=2)

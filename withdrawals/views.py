@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Withdraw
 from .serializers import WithdrawSerializer
-from wallet.models import UserWallet, Contribution
+from wallet.models import UserWallet, Contribution, Wallet
 from shares.models import Shares
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404
@@ -20,7 +20,10 @@ from decorators.decorators import role_required
 def user_withdrawals(request):
     # Handle GET request: List all widrawals for the current user
     if request.method == 'GET':
-        widrawals = Withdraw.objects.filter(user=request.user)
+        try:
+            widrawals = Withdraw.objects.filter(user=request.user)
+        except Exception as e:
+            return Response({"error: There was a problem withdrwing"}, status=status.HTTP_400_BAD_REQUEST)
         serializer = WithdrawSerializer(widrawals, many=True)
         return Response(serializer.data)
 
@@ -50,4 +53,22 @@ def user_withdrawals(request):
             update_user_shares(request.user, -withdrawal.amount)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@role_required(roles=['PARTNER'])
+def user_withdrawals_in_wallet(request, wallet):
+    # Handle GET request: List all deposits for the current user
+    if request.method == 'GET':
+        try:
+            wallet = Wallet.objects.get(id=wallet)
+            # Get all users associated with this wallet
+            user_wallets = wallet.userwallet_set.all()
+            users = [user_wallet.user for user_wallet in user_wallets]
+            # Get all deposits for these users
+            withdrawals = Withdraw.objects.filter(user__in=users)
+        except Exception as e:
+             return Response({"error: There was a problem"}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = WithdrawSerializer(withdrawals, many=True)
+        return Response(serializer.data)

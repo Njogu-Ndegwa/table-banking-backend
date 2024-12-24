@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Deposit
 from .serializers import DepositSerializer
-from wallet.models import UserWallet, Contribution
+from wallet.models import UserWallet, Contribution, Wallet
 from services.shares import update_user_shares
 from decorators.decorators import role_required
 from rest_framework.permissions import IsAuthenticated
@@ -14,7 +14,10 @@ from rest_framework.permissions import IsAuthenticated
 def user_deposits(request):
     # Handle GET request: List all deposits for the current user
     if request.method == 'GET':
-        deposits = Deposit.objects.filter(user=request.user)
+        try:
+            deposits = Deposit.objects.filter(user=request.user)
+        except Exception as e:
+             return Response({"error: User Does not have Deposits"}, status=status.HTTP_400_BAD_REQUEST)
         serializer = DepositSerializer(deposits, many=True)
         return Response(serializer.data)
 
@@ -44,4 +47,22 @@ def user_deposits(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@role_required(roles=['PARTNER'])
+def user_deposits_in_wallet(request, wallet):
+    # Handle GET request: List all deposits for the current user
+    if request.method == 'GET':
+        try:
+            wallet = Wallet.objects.get(id=wallet)
+            # Get all users associated with this wallet
+            user_wallets = wallet.userwallet_set.all()
+            users = [user_wallet.user for user_wallet in user_wallets]
+            # Get all deposits for these users
+            deposits = Deposit.objects.filter(user__in=users)
+            print(deposits, "-----63----")
+        except Exception as e:
+             return Response({"error: There was a problem"}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = DepositSerializer(deposits, many=True)
+        return Response(serializer.data)
 

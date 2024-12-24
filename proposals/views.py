@@ -6,14 +6,20 @@ from rest_framework import status
 from .models import LoanProposal, LoanProposalVote
 from .serializers import LoanProposalSerializer, LoanProposalVoteSerializer
 from rest_framework.permissions import IsAuthenticated
-from wallet.models import UserWallet
+from wallet.models import UserWallet, Wallet
 import requests
+from decorators.decorators import role_required
+
 
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
+@role_required(roles=['PARTNER', 'MEMBER'])
 def loan_proposal(request):
     if request.method == "GET":
-        proposals = LoanProposal.objects.all()
+        try:
+            proposals = LoanProposal.objects.filter(user=request.user)
+        except Exception as e:
+             return Response({"error: User Does not have any Proposals"}, status=status.HTTP_400_BAD_REQUEST)
         serializer = LoanProposalSerializer(proposals, many=True)
         return Response(serializer.data)
     elif request.method == "POST":
@@ -25,6 +31,8 @@ def loan_proposal(request):
 
 
 @api_view(["GET"])
+@permission_classes([IsAuthenticated])
+@role_required(roles=['PARTNER', 'MEMBER'])
 def loan_proposal_detail(request, pk):
     try:
         proposal = LoanProposal.objects.get(pk=pk)
@@ -35,9 +43,13 @@ def loan_proposal_detail(request, pk):
 
 @api_view(["GET","POST"])
 @permission_classes([IsAuthenticated])
+@role_required(roles=['PARTNER', 'MEMBER'])
 def loan_proposal_vote(request):
     if request.method == "GET":
-        votes = LoanProposalVote.objects.all()
+        try:
+            votes = LoanProposalVote.objects.filter(user=request.user)
+        except Exception as e:
+             return Response({"error: User Does not have any Votes"}, status=status.HTTP_400_BAD_REQUEST)
         serializer = LoanProposalVoteSerializer(votes, many=True)
         return Response(serializer.data)
     elif request.method == "POST":
@@ -48,6 +60,7 @@ def loan_proposal_vote(request):
 
 
         vote = request.data.get("vote")
+        wallet = request.data.get('wallet')
         if vote is None:
             return Response({"error": "Vote field is required."}, status=status.HTTP_400_BAD_REQUEST)
         
@@ -71,13 +84,24 @@ def loan_proposal_vote(request):
             interest_rate = 10
             term = 2
             print(borrower, "----73-----")
+            print(amount, "---74")
+            print(interest_rate, "-----87---")
+            print(term, "----88----")
             data = {
                 "borrower": borrower,
                 "amount_borrowed": amount,
                 "interest_rate": interest_rate,
-                "term": term
+                "term": term,
+                "wallet": wallet
             }
-            requests.post(url=url, data=data)
+            token = request.headers.get('Authorization')
+            headers = {
+                            "Authorization": token
+                      }
+            try:
+                requests.post(url=url, data=data)
+            except Exception as e:
+                return Response({"error": "There was a problem creating a loan"}, status=status.HTTP_400_BAD_REQUEST)
             return Response({"message": "All members voted yes."}, status=status.HTTP_200_OK)
 
 
@@ -93,3 +117,41 @@ def count_votes_for_proposal(proposal_id):
     # and LoanProposal has a primary key called 'id'
     total_votes = LoanProposalVote.objects.filter(proposal=proposal_id).count()
     return total_votes
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@role_required(roles=['PARTNER', 'MEMBER'])
+def loan_proposals_in_wallet(request, wallet):
+    if request.method == 'GET':
+        try:
+            wallet = Wallet.objects.get(id=wallet)
+            # Get all users associated with this wallet
+            user_wallets = wallet.userwallet_set.all()
+            users = [user_wallet.user for user_wallet in user_wallets]
+            # Get all pending loan proposals for these users
+            loan_proposals = LoanProposal.objects.filter(user__in=users, status='Pending')
+
+        except Exception as e:
+            return Response({"error: There was a problem"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = LoanProposalSerializer(loan_proposals, many=True)
+        return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@role_required(roles=['PARTNER', 'MEMBER'])
+def votes_in_loan_proposal(request, proposal):
+    # Handle GET request: List all deposits for the current user
+    if request.method == 'GET':
+        try:
+            # Get all deposits for these users
+            vote = LoanProposalVote.objects.filter(proposal=proposal)
+
+        except Exception as e:
+             return Response({"error: There was a problem"}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = LoanProposalVoteSerializer(vote, many=True)
+        return Response(serializer.data)
+
